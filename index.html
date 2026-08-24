@@ -1,0 +1,938 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>公牛开关插座 抖音直播提词器</title>
+<style>
+  :root {
+    --bg: #111214;
+    --panel: #1a1c20;
+    --panel-2: #21242a;
+    --text: #f2f3f5;
+    --dim: #9aa0a6;
+    --accent: #ffd450;
+    --accent-soft: rgba(255, 212, 80, 0.14);
+    --line: rgba(255, 255, 255, 0.25);
+    --fs: 34px;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    display: flex;
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Microsoft YaHei", "PingFang SC", "Hiragino Sans GB", system-ui, sans-serif;
+    overflow: hidden;
+    user-select: none;
+  }
+
+  /* ---------- 左侧章节跳转栏 ---------- */
+  #sidebar {
+    width: 210px;
+    flex: 0 0 210px;
+    background: var(--panel);
+    border-right: 1px solid #26292f;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    padding: 14px 10px 20px;
+  }
+  #sidebar .brand {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--accent);
+    padding: 6px 10px 14px;
+    border-bottom: 1px solid #26292f;
+    margin-bottom: 10px;
+    letter-spacing: 1px;
+  }
+  #sidebar .brand small { display: block; font-size: 12px; color: var(--dim); font-weight: 400; margin-top: 3px; letter-spacing: 0; }
+  #sidebar button {
+    display: block;
+    width: 100%;
+    text-align: left;
+    background: transparent;
+    border: none;
+    color: var(--dim);
+    font-size: 15px;
+    padding: 9px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: inherit;
+    margin-bottom: 2px;
+    transition: background .15s, color .15s;
+  }
+  #sidebar button:hover { background: var(--panel-2); color: var(--text); }
+  #sidebar button.active { background: var(--accent-soft); color: var(--accent); font-weight: 700; }
+  #sidebar button .num {
+    display: inline-block;
+    width: 22px;
+    color: var(--dim);
+    font-size: 12px;
+    opacity: .7;
+  }
+  #sidebar button.active .num { color: var(--accent); }
+
+  /* ---------- 右侧主体 ---------- */
+  #right {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+  #prompter {
+    position: relative;
+    flex: 1;
+    overflow: hidden;
+    background:
+      radial-gradient(120% 90% at 50% 0%, #171a1f 0%, var(--bg) 60%);
+  }
+  #content {
+    height: 100%;
+    overflow: hidden;
+    padding: 6vh 7vw 60vh;
+    font-size: var(--fs);
+    line-height: 1.85;
+  }
+  #content .block {
+    position: relative;
+    padding: 10px 22px;
+    border-left: 5px solid transparent;
+    border-radius: 4px;
+    margin-bottom: 4px;
+    transition: background .18s, border-color .18s;
+  }
+  #content .block.active {
+    background: var(--accent-soft);
+    border-left-color: var(--accent);
+  }
+  #content .block.h {
+    font-size: calc(var(--fs) * 1.15);
+    font-weight: 800;
+    color: var(--accent);
+    border-left-color: transparent;
+    padding-top: 34px;
+    padding-bottom: 8px;
+    letter-spacing: 1px;
+  }
+  #content .block.h:first-child { padding-top: 10px; }
+  #content .block.note {
+    font-size: calc(var(--fs) * 0.62);
+    color: var(--dim);
+    border-left-color: #3a3f47;
+    background: rgba(255,255,255,0.025);
+    line-height: 1.6;
+  }
+  #content .block.bullet { padding-left: 40px; }
+  #content .block.bullet::before {
+    content: "▸";
+    position: absolute;
+    left: 16px;
+    color: var(--accent);
+    opacity: .85;
+  }
+  #content .block b { color: var(--accent); font-weight: 700; }
+  #content table.price {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: calc(var(--fs) * 0.72);
+    margin-top: 6px;
+  }
+  #content table.price th, #content table.price td {
+    border: 1px solid #34383f;
+    padding: 9px 12px;
+    text-align: left;
+  }
+  #content table.price th {
+    background: var(--panel-2);
+    color: var(--accent);
+    font-weight: 700;
+  }
+  #content table.price td { color: var(--text); }
+  #content table.price td.price-col { color: var(--accent); font-weight: 700; white-space: nowrap; }
+
+  /* 阅读线 */
+  #readingLine {
+    position: absolute;
+    left: 0; right: 0;
+    top: 45%;
+    height: 0;
+    border-top: 2px dashed var(--line);
+    pointer-events: none;
+  }
+  #readingLine::before {
+    content: "";
+    position: absolute;
+    top: -28px; left: 0; right: 0; height: 56px;
+    background: linear-gradient(to bottom, transparent, rgba(255,212,80,0.05), transparent);
+  }
+
+  /* 开始提示 */
+  #hint {
+    position: absolute;
+    left: 50%; top: 45%;
+    transform: translate(-50%, -50%);
+    background: rgba(20,22,26,0.92);
+    border: 1px solid #34383f;
+    color: var(--accent);
+    padding: 14px 26px;
+    border-radius: 10px;
+    font-size: 18px;
+    letter-spacing: 2px;
+    pointer-events: none;
+    transition: opacity .4s;
+  }
+  #hint.hide { opacity: 0; }
+
+  /* ---------- 底部控制栏 ---------- */
+  #controls {
+    height: 62px;
+    flex: 0 0 62px;
+    background: var(--panel);
+    border-top: 1px solid #26292f;
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    padding: 0 22px;
+  }
+  #controls .btn {
+    background: var(--panel-2);
+    border: 1px solid #34383f;
+    color: var(--text);
+    font-size: 15px;
+    padding: 9px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-family: inherit;
+    min-width: 74px;
+    transition: background .15s;
+  }
+  #controls .btn:hover { background: #2a2e36; }
+  #controls .btn.primary { background: var(--accent); color: #1a1400; font-weight: 700; border-color: var(--accent); }
+  #controls .btn.primary:hover { background: #ffe27a; }
+  #controls .group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--dim);
+    font-size: 13px;
+    white-space: nowrap;
+  }
+  #controls input[type=range] {
+    width: 170px;
+    accent-color: var(--accent);
+    cursor: pointer;
+  }
+  #controls .chip {
+    background: var(--panel-2);
+    border: 1px solid #34383f;
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-size: 13px;
+    color: var(--dim);
+    min-width: 34px;
+    text-align: center;
+  }
+  #currentSection {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--accent);
+    white-space: nowrap;
+  }
+  #controls .spacer { flex: 1; }
+  .kbd {
+    display: inline-block;
+    background: var(--panel-2);
+    border: 1px solid #3a3f47;
+    border-bottom-width: 2px;
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-size: 11px;
+    color: var(--dim);
+    font-family: inherit;
+  }
+
+  /* ---------- 编辑模式 ---------- */
+  #sidebar .edit-btn {
+    background: var(--panel-2);
+    color: var(--accent);
+    border: 1px solid #34383f;
+    font-weight: 700;
+    text-align: center;
+    margin-bottom: 12px;
+  }
+  #sidebar .edit-btn:hover { background: #2a2e36; }
+  #editor {
+    position: fixed;
+    inset: 0;
+    background: var(--bg);
+    z-index: 100;
+    display: none;
+    flex-direction: column;
+  }
+  #editor.open { display: flex; }
+  #editor .ed-top {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 20px;
+    background: var(--panel);
+    border-bottom: 1px solid #26292f;
+  }
+  #editor .ed-title { font-size: 16px; font-weight: 700; color: var(--text); white-space: nowrap; }
+  #editor .ed-hint { flex: 1; color: var(--dim); font-size: 12px; line-height: 1.6; }
+  #editor .ed-btn {
+    background: var(--panel-2);
+    border: 1px solid #34383f;
+    color: var(--text);
+    font-size: 15px;
+    padding: 8px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-family: inherit;
+    white-space: nowrap;
+  }
+  #editor .ed-btn:hover { background: #2a2e36; }
+  #editor .ed-btn.save { background: var(--accent); color: #1a1400; font-weight: 700; border-color: var(--accent); }
+  #editor .ed-btn.save:hover { background: #ffe27a; }
+  #editor .ed-btn.danger { color: #ff8a80; border-color: #5a2a26; }
+  #editor textarea {
+    flex: 1;
+    background: #14161a;
+    color: #e8eaed;
+    border: none;
+    outline: none;
+    padding: 18px 24px;
+    font-family: "Microsoft YaHei", Consolas, "Courier New", monospace;
+    font-size: 16px;
+    line-height: 1.75;
+    resize: none;
+    user-select: text;
+    -webkit-user-select: text;
+  }
+</style>
+</head>
+<body>
+
+<aside id="sidebar">
+  <div class="brand">公牛 · 提词器<small>开关插座抖音直播</small></div>
+  <button id="editBtn" class="edit-btn">✏️ 编辑话术</button>
+  <div id="sideButtons"></div>
+</aside>
+
+<div id="right">
+  <div id="prompter">
+    <div id="content"></div>
+    <div id="readingLine"></div>
+    <div id="hint">按 <span class="kbd">空格</span> 开始滚动</div>
+  </div>
+  <div id="controls">
+    <button id="playBtn" class="btn primary">▶ 开始</button>
+    <div class="group">
+      <button id="speedMinus" class="btn">−</button>
+      <input type="range" id="speedSlider" min="10" max="160" step="1" value="45">
+      <button id="speedPlus" class="btn">+</button>
+      <div class="chip" id="speedLabel">45</div>
+    </div>
+    <div class="group">
+      <button id="fontMinus" class="btn">A−</button>
+      <button id="fontPlus" class="btn">A+</button>
+      <div class="chip" id="fontLabel">34</div>
+    </div>
+    <div class="spacer"></div>
+    <div id="currentSection">—</div>
+    <button id="fullBtn" class="btn">⛶ 全屏</button>
+  </div>
+</div>
+
+<div id="editor">
+  <div class="ed-top">
+    <span class="ed-title">✏️ 编辑话术</span>
+    <span class="ed-hint">格式：<b># 章节标题</b>（会变成左侧跳转按钮）｜<b>## 小标题</b>｜<b>- 要点</b>｜<b>&gt; 备注</b>｜<b>| 列1 | 列2 | 列3 |</b>（价格表格）｜普通行=正文｜<b>**加粗**</b></span>
+    <button id="saveBtn" class="ed-btn save">💾 保存</button>
+    <button id="resetBtn" class="ed-btn danger">↺ 恢复默认</button>
+    <button id="cancelBtn" class="ed-btn">取消</button>
+  </div>
+  <textarea id="editArea" spellcheck="false" placeholder="在这里粘贴或编辑话术……"></textarea>
+</div>
+
+<script>
+// ================= 话术内容（章节数据） =================
+// t: h=章节大标题 / text=念稿 / note=提示 / bullet=要点 / price=价格表
+// DEFAULT_SECTIONS 是内置原始话术；用户编辑后的内容保存在浏览器本地，
+// 打开时自动读取 localStorage，若没有则用默认内容。
+const DEFAULT_SECTIONS = [
+  {
+    id: "open", label: "开场暖场",
+    blocks: [
+      { t: "h", d: "一、开场暖场（0-3分钟）" },
+      { t: "note", d: "主播人设：不喊麦、不硬推，走\"自家装修过来人 + 公牛旗舰店店员\"的靠谱邻居人设。开场就告诉家人们\"今天不聊虚的，就聊家里装修最容易被坑、又最不起眼的开关插座\"。" },
+      { t: "text", d: "欢迎新进来的家人们！刚进来的先点个关注，今天这场直播全是干货，讲的是家里装修**最不起眼、但天天都要用**的东西——开关插座。" },
+      { t: "text", d: "为什么说它不起眼？因为装修的时候大家光盯着瓷砖、柜子、沙发去了，开关插座都是最后随手一买。但你想啊——**全屋几十个开关插座，你一天要摸几十次**，装差了是拆不下来的，得砸墙！所以说这东西，买之前一定得懂点门道。" },
+      { t: "text", d: "今天主播在的是公牛旗舰店，把店里卖得最好的几款五孔插座和一个特别火的复古拨杆开关都给大家摆出来了。**不管你是新房装修、老房改造，还是出租房简装，今天都能挑到合适的那一款。** 先点个赞，咱们慢慢讲。" },
+    ],
+  },
+  {
+    id: "hook", label: "抛钩子·信任",
+    blocks: [
+      { t: "h", d: "二、抛钩子 · 建立信任（3-5分钟）" },
+      { t: "text", d: "很多家人一来就问\"插座到底怎么选\"。我给大家讲一个**90%的人都会踩的坑**：买了普通五孔插座，结果插了手机充电器，三孔就插不进去台灯了——为什么？因为上下两个孔靠得太近，插头打架！" },
+      { t: "text", d: "公牛是怎么解决的？我们有一项专利叫**斜五孔设计**，把两孔和三孔错开排，两边的插头互不干扰，**两个设备能同时用**。这个设计在咱们G56系列上就有。" },
+      { t: "text", d: "所以记住第一句口诀：**买五孔，认准斜五孔，两插不打架。**" },
+    ],
+  },
+  {
+    id: "g32", label: "G32 守护系列",
+    blocks: [
+      { t: "h", d: "三、产品逐个介绍" },
+      { t: "h", d: "1. G32 守护系列 —— 出租房、简装、预算党" },
+      { t: "text", d: "第一款先给预算有限的家人们。G32守护系列，**小巧面板、价格亲民**，但是该有的安全一样不少。" },
+      { t: "bullet", d: "**抗电涌**：结构优化过，能扛住**1000W的高额电涌**，空调、电磁炉这种大功率电器频繁启停，不容易把开关烧了。" },
+      { t: "bullet", d: "**本体压线端子**：配的是防脱螺钉，**不伤导线、不掉螺丝**，师傅接线也省心。" },
+      { t: "text", d: "一句话：**花实惠的钱，买放心的电。**" },
+      { t: "text", d: "适合谁？出租房、简装房、次卧、书房，预算有限但不想将就安全的家人们。直播间白色款只要**5块3**，香槟金款**6块6**！" },
+    ],
+  },
+  {
+    id: "g25", label: "G25 安居系列",
+    blocks: [
+      { t: "h", d: "2. G25 安居系列（大板）—— 主流家装闭眼入" },
+      { t: "text", d: "想要**无框大面板**、装出来好看的，看这个——G25安居系列，暮雪白、星空灰、香槟金、太空银四个色。" },
+      { t: "text", d: "三个硬实力：" },
+      { t: "bullet", d: "**扛得住大功率 LED**：通过国家**CCC自镇流负载测试**，LED负载功率能到**1500W**，现在家里全是LED灯、无主灯，选它就对了，不容易烧开关。" },
+      { t: "bullet", d: "**高温阻燃**：材料到工艺层层把关，从源头上构筑安全屏障。" },
+      { t: "bullet", d: "**强化后座**：一体化固定架，受力均匀，师傅安装不容易把面板压变形。" },
+      { t: "text", d: "一句话：**主流家装标配，好看又能扛**，只要**12块6**，性价比拉满。" },
+    ],
+  },
+  {
+    id: "g53", label: "G53 复古拨杆开关",
+    blocks: [
+      { t: "h", d: "3. G53 超薄有机玻璃 + 复古拨杆开关 —— 今天的主角" },
+      { t: "text", d: "家人们，重头戏来了！今天主推的**G53复古拨杆开关**，真的是谁看谁心动。来，镜头给近一点——" },
+      { t: "bullet", d: "**触指温感拨杆**：这个拨杆是**AS材质+金属杆**的结合，手感温润、咔哒清脆，而且杆子弧度是**按人体工学设计的，完全贴合手指曲线**。用过你就知道，普通按键开关是\"按\"，这个开关是\"拨\"，**每一次拨动都像指尖轻舞**，复古范儿拉满。" },
+      { t: "bullet", d: "**超薄机身**：只有**6.5mm**，比传统开关薄一半，装完就是一块\"贴在墙上的水晶\"。" },
+      { t: "bullet", d: "**4H有机玻璃面板**：硬度高、抗磨耐刮，用几年也不容易花，通透的光泽感特别高级，奶油金、月影灰、珍珠白三个色。" },
+      { t: "text", d: "一句话：**它是开关，也是家里的复古装饰品。** 想给家里加点质感、又喜欢这种老式拨杆仪式感的家人，一定别错过。开关价格【】。" },
+      { t: "text", d: "（同样材质、同样颜值，G53也有**五孔插座**，珍珠白、奶油金、月影灰三个色统一**20块1**，和复古拨杆开关配套买，一套上墙更协调，搭配价更划算。）" },
+    ],
+  },
+  {
+    id: "g56", label: "G56 蝶翼一代",
+    blocks: [
+      { t: "h", d: "4. G56 蝶翼一代 —— 斜五孔专利 + 意大利大师设计" },
+      { t: "text", d: "想要**极致超薄、又能两插同时用**的家人们，看这款G56蝶翼一代。" },
+      { t: "bullet", d: "**斜五孔专利**：开头讲的那个\"两插不打架\"，就是它！两孔三孔错开，手机充电器+台灯能同时用。" },
+      { t: "bullet", d: "**6.4mm超薄**，比传统开关薄**50%**，而且是**意大利设计大师联合设计**的，上墙就是高级感。" },
+      { t: "bullet", d: "**九种高定配色**：暮雪白、远山灰、星辰金、墨云灰、奶绒咖……装修是奶油风、侘寂风、轻奢风的，都能找到配得上的颜色。" },
+      { t: "bullet", d: "**四重安全工艺**：耐高温、防触电、防生锈、防变形。" },
+      { t: "text", d: "一句话：**要颜值、要专利、要质感，G56就是高端线里最值得入的。** 暮雪白款**17块**，其他配色**18块5**。" },
+    ],
+  },
+  {
+    id: "g58", label: "G58 经济超薄系列",
+    blocks: [
+      { t: "h", d: "5. G58 经济超薄系列 —— 超薄不花大钱" },
+      { t: "text", d: "觉得G56贵，但就想要超薄面板的家人，看G58！**6.4mm纤薄机身**，和G56一样薄，但是价格更亲民。" },
+      { t: "bullet", d: "**四款配色**：暮雪白、月影灰、浅沙金、亮面白。" },
+      { t: "bullet", d: "**超小摆角 + 3mm精准按压行程**：轻轻一碰就灵敏响应，手感很轻。" },
+      { t: "bullet", d: "**银点焊接工艺**：导电性能稳，电流传输更可靠。" },
+      { t: "text", d: "一句话：**用经济的价格，享受超薄的颜值**，暮雪白**13块**、月影灰**14块4**，主流家庭闭眼买的那一档。" },
+    ],
+  },
+  {
+    id: "g37", label: "G37 销量王",
+    blocks: [
+      { t: "h", d: "6. G37 —— 销量王，大部分家庭都在用" },
+      { t: "text", d: "最后一款，G37，别看它出场晚，它是**店里销量最大的一档**，属于\"性能、品质、价格完美平衡\"。" },
+      { t: "text", d: "大多数普通家庭装它就是最省心的选择：**皮实耐用、性价比高**，家里常规需求全都覆盖。白色款只要**8块6**，其他配色**10块3-11块4**。如果你想不好买哪个，**跟着大多数人买G37，基本不会错。**" },
+    ],
+  },
+  {
+    id: "five", label: "通用五孔开场白",
+    blocks: [
+      { t: "h", d: "各型号五孔插座通用开场白（轮播时可反复用）" },
+      { t: "text", d: "家人们，这个就是咱们公牛的五孔插座，两孔三孔都有。**认准斜五孔**，两个插头能同时用；**认准儿童保护门**，家里有宝宝的插不进异物；面板是**阻燃耐高温材质**，用着才放心。今天下单价【】，点下方购物车直接拍。" },
+    ],
+  },
+  {
+    id: "qa", label: "答疑 Q&A",
+    blocks: [
+      { t: "h", d: "四、常见问题答疑（Q&A话术）" },
+      { t: "text", d: "**Q：和杂牌插座差在哪？**" },
+      { t: "text", d: "A：差在**安全**。开关插座是墙里走的，公牛用的是阻燃耐高温PC材质，儿童安全保护门防止宝宝误插，纯银/银合金触点温升更低。这些东西是看不见的，但真要出问题，不是换个插座的事，是家电甚至安全的事。" },
+      { t: "text", d: "**Q：10A和16A怎么选？**" },
+      { t: "text", d: "A：普通五孔插座是**10A**，带空调、热水器这种大功率的要**16A**。买之前先看电器功率，大功率电器千万别用普通插座硬扛。" },
+      { t: "text", d: "**Q：我家老房改造，原来的暗盒能用吗？**" },
+      { t: "text", d: "A：大部分86型暗盒都能装，都是标准86规格。实在拿不准的，下单前把暗盒情况发给我们客服，我们帮你确认。" },
+      { t: "text", d: "**Q：这么多系列，到底买哪个？**" },
+      { t: "text", d: "A：预算有限/出租房→**G32**；主流家装、要耐造→**G25或G37**；想要超薄好看→**G58**；追求设计感、要复古拨杆→**G53**；要斜五孔+极致颜值→**G56**。" },
+    ],
+  },
+  {
+    id: "close", label: "逼单促单",
+    blocks: [
+      { t: "h", d: "五、逼单促单话术" },
+      { t: "text", d: "家人们，今天这些价格都是**直播间专属价**，比店里买划算，而且**全屋一套买更省**。你现在买开关，装修师傅还在改水电，**完全来得及**，别等硬装进场了再慌慌张张补货。" },
+      { t: "text", d: "下单前记住：**先把全屋数量数好，多买几个也不怕，公牛支持【退换货政策】。** 现在拍的家人，备注\"直播间\"再送【赠品/优惠】。看中的直接在下方小黄车下单，数量有限，先到先得！" },
+    ],
+  },
+  {
+    id: "end", label: "收尾下播",
+    blocks: [
+      { t: "h", d: "六、收尾下播" },
+      { t: "text", d: "好啦家人们，今天开关插座专场就到这儿。没听够的记得**点关注**，下次我们讲【下次主题】。装修路上有任何拿不准的，随时来直播间问，咱们下播见！" },
+    ],
+  },
+  {
+    id: "price", label: "价格表",
+    blocks: [
+      { t: "h", d: "附：五孔插座售价体系（直播价）" },
+      { t: "price", d: [
+        ["系列","型号/货号","颜色","直播价"],
+        ["G32守护","G32Z223 二三极连体插座A","白","5.3元"],
+        ["G32守护","G327223 二三极连体插座A","香槟金","6.6元"],
+        ["G37","G37Z223A 二三极宽体插座","白","8.6元"],
+        ["G37","G37Z223A 二三极宽体插座","暮雪白","10.3元"],
+        ["G37","G37Z223A 二三极宽体插座","香槟金","11.4元"],
+        ["G37","G37Z223A 二三极宽体插座","星空灰","11.4元"],
+        ["G37","G37Z223A 二三极宽体插座","米绒白","11.4元"],
+        ["G25安居","G25Z223A 二三极宽体插座","星空灰","12.6元"],
+        ["G58经济超薄","G58Z223A 二三极宽体插座","暮雪白","13.0元"],
+        ["G58经济超薄","G58Z223A 二三极宽体插座","月影灰","14.4元"],
+        ["G61","G61Z223A 二三极宽体插座","白","10.7元"],
+        ["G61","G61Z223A 二三极宽体插座","月影灰","13.5元"],
+        ["G28","G28Z223A 二三极宽体插座","星空灰","13.8元"],
+        ["G56蝶翼","G56Z223A 二三极宽体插座","暮雪白","17.0元"],
+        ["G56蝶翼","G56Z223A 二三极宽体插座","远山灰","18.5元"],
+        ["G56蝶翼","G56Z223A 二三极宽体插座","星辰金","18.5元"],
+        ["G56蝶翼","G56Z223A 二三极宽体插座","米绒白","18.5元"],
+        ["G53超薄有机玻璃","G53Z223A 二三极宽体插座","珍珠白","20.1元"],
+        ["G53超薄有机玻璃","G53Z223A 二三极宽体插座","奶油金","20.1元"],
+        ["G53超薄有机玻璃","G53Z223A 二三极宽体插座","月影灰","20.1元"],
+        ["G51","G51Z223A 二三极宽体插座","珍珠白","21.2元"],
+        ["G51","G51Z223A 二三极宽体插座","远山灰","21.2元"],
+        ["G51","G51Z223A 二三极宽体插座","奶油金","21.2元"],
+      ] },
+      { t: "note", d: "注：G53复古拨杆开关、G56/G58等其他开关类产品价格未提供，话术中相应位置保留【】占位符，可按实际售价补填。" },
+    ],
+  },
+  {
+    id: "tips", label: "直播小贴士",
+    blocks: [
+      { t: "h", d: "补充说明 · 直播小贴士" },
+      { t: "note", d: "1. G37在培训PPT里没有单独卖点页，按\"主流精选、销量最大\"的定位编写。如有G37具体参数可补充。" },
+      { t: "note", d: "2. G53复古拨杆开关的\"拨杆手感\"是最大差异化，直播时建议给近景特写，现场拨两下给观众听声音、看手感，种草效果最好。" },
+    ],
+  },
+];
+
+// 本地存储：用户编辑后的内容保存在这里，下次打开自动读取
+const STORE_KEY = "bull_prompter_sections_v1";
+function cloneSections(secs) {
+  return secs.map(s => ({
+    id: s.id,
+    label: s.label,
+    blocks: s.blocks.map(b => b.t === "price"
+      ? { t: "price", d: b.d.map(row => row.slice()) }
+      : { ...b }),
+  }));
+}
+function loadSections() {
+  try {
+    const raw = localStorage.getItem(STORE_KEY);
+    if (!raw) return null;
+    const data = JSON.parse(raw);
+    if (!Array.isArray(data) || !data.length) return null;
+    if (!data.every(s => s && typeof s.label === "string" && Array.isArray(s.blocks))) return null;
+    return data;
+  } catch (e) { return null; }
+}
+let SECTIONS = loadSections() || cloneSections(DEFAULT_SECTIONS);
+
+// ================= 渲染 =================
+const content = document.getElementById("content");
+const sideButtons = document.getElementById("sideButtons");
+const blockEls = [];   // 每个块的 DOM 元素
+const blockSec = [];   // 每个块属于哪个 section 下标
+
+function renderText(txt) {
+  return txt.replace(/\*\*(.+?)\*\*/g, "<b>$1</b>");
+}
+
+// ================= 编辑模式：话术文本 <-> 章节数据 =================
+// 编辑框里用纯文本（Markdown 风格）表示内容，保存时解析回 SECTIONS。
+function serializeSections(secs) {
+  const parts = [];
+  secs.forEach(sec => {
+    parts.push("# " + sec.label, "");
+    sec.blocks.forEach(b => {
+      if (b.t === "h") parts.push("## " + b.d);
+      else if (b.t === "note") parts.push("> " + b.d);
+      else if (b.t === "bullet") parts.push("- " + b.d);
+      else if (b.t === "price") b.d.forEach(row => parts.push("| " + row.join(" | ") + " |"));
+      else parts.push(b.d);
+      parts.push("");
+    });
+  });
+  return parts.join("\n");
+}
+
+function parseText(text) {
+  const sections = [];
+  let cur = null;
+  let tableRows = null;
+
+  const pushBlock = (b) => {
+    if (!cur) { cur = { label: "正文", blocks: [] }; sections.push(cur); }
+    cur.blocks.push(b);
+  };
+  const flushTable = () => {
+    if (tableRows && tableRows.length) {
+      pushBlock({ t: "price", d: tableRows });
+      tableRows = null;
+    }
+  };
+
+  text.split(/\r?\n/).forEach(raw => {
+    const line = raw.trim();
+    if (!line) { flushTable(); return; }
+
+    const h = line.match(/^(#{1,6})\s+(.*)$/);
+    if (h) {
+      flushTable();
+      const title = h[2].trim();
+      if (h[1].length === 1) {
+        cur = { label: title, blocks: [] };
+        sections.push(cur);
+      } else {
+        pushBlock({ t: "h", d: title });
+      }
+      return;
+    }
+    if (line.startsWith(">")) { flushTable(); pushBlock({ t: "note", d: line.slice(1).trim() }); return; }
+    if (line.startsWith("- ") || line.startsWith("* ")) { flushTable(); pushBlock({ t: "bullet", d: line.slice(2).trim() }); return; }
+    if (line.startsWith("|")) {
+      if (/^[\|\s\-:]+$/.test(line)) return; // 跳过 |---|---| 分隔行
+      const cells = line.split("|").slice(1, -1).map(c => c.trim());
+      if (!tableRows) tableRows = [];
+      tableRows.push(cells);
+      return;
+    }
+    flushTable();
+    pushBlock({ t: "text", d: line });
+  });
+  flushTable();
+  return sections;
+}
+
+function build() {
+  let globalIdx = 0;
+  SECTIONS.forEach((sec, si) => {
+    sec.blocks.forEach(b => {
+      let el;
+      if (b.t === "h") {
+        el = document.createElement("div");
+        el.className = "block h";
+        el.innerHTML = renderText(b.d);
+      } else if (b.t === "note") {
+        el = document.createElement("div");
+        el.className = "block note";
+        el.innerHTML = renderText(b.d);
+      } else if (b.t === "bullet") {
+        el = document.createElement("div");
+        el.className = "block bullet";
+        el.innerHTML = renderText(b.d);
+      } else if (b.t === "price") {
+        el = document.createElement("div");
+        el.className = "block";
+        const tbl = document.createElement("table");
+        tbl.className = "price";
+        b.d.forEach((row, ri) => {
+          const tr = document.createElement("tr");
+          row.forEach((cell, ci) => {
+            const tag = ri === 0 ? "th" : (ci === 3 ? "td" : "td");
+            const cellEl = document.createElement(tag);
+            cellEl.textContent = cell;
+            if (ri !== 0 && ci === 3) cellEl.className = "price-col";
+            tr.appendChild(cellEl);
+          });
+          tbl.appendChild(tr);
+        });
+        el.appendChild(tbl);
+      } else {
+        el = document.createElement("div");
+        el.className = "block text";
+        el.innerHTML = renderText(b.d);
+      }
+      el.dataset.idx = globalIdx;
+      content.appendChild(el);
+      blockEls.push(el);
+      blockSec.push(si);
+      globalIdx++;
+    });
+  });
+
+  // 侧边栏按钮
+  SECTIONS.forEach((sec, si) => {
+    const btn = document.createElement("button");
+    const num = document.createElement("span");
+    num.className = "num";
+    num.textContent = String(si + 1).padStart(2, "0");
+    btn.appendChild(num);
+    btn.appendChild(document.createTextNode(" " + sec.label));
+    btn.addEventListener("click", () => jumpToSection(si));
+    btn.dataset.sec = si;
+    sideButtons.appendChild(btn);
+  });
+}
+
+// ================= 提词器核心 =================
+const prompter = document.getElementById("prompter");
+const readingLine = document.getElementById("readingLine");
+const hint = document.getElementById("hint");
+const READING_RATIO = 0.45;
+
+let playing = false;
+let speed = 45;
+let lastTs = 0;
+let rafId = null;
+let currentIdx = 0;
+// 高精度滚动位置（浮点）。浏览器会把 scrollTop 量化成 0.8px 的整数倍，
+// 低速时每帧增量不足 0.8px，若从 DOM 读回累加会永远停在原地；
+// 用独立浮点变量累加，亚像素进度不会丢失。
+let pos = 0;
+
+function maxScroll() {
+  return Math.max(0, content.scrollHeight - prompter.clientHeight);
+}
+function clamp(v) {
+  return Math.max(0, Math.min(maxScroll(), v));
+}
+function readingY() {
+  return pos + prompter.clientHeight * READING_RATIO;
+}
+function setScroll(v) {
+  pos = clamp(v);
+  content.scrollTop = pos;
+}
+
+function activeBlockIndex() {
+  const y = readingY();
+  let best = 0, bestDist = Infinity;
+  for (let i = 0; i < blockEls.length; i++) {
+    const center = blockEls[i].offsetTop + blockEls[i].offsetHeight / 2;
+    const dist = Math.abs(center - y);
+    if (dist < bestDist) { bestDist = dist; best = i; }
+  }
+  return best;
+}
+
+function updateHighlight() {
+  const idx = activeBlockIndex();
+  if (idx === currentIdx) return;
+  currentIdx = idx;
+  blockEls.forEach((el, i) => el.classList.toggle("active", i === idx));
+  const sec = blockSec[idx];
+  document.querySelectorAll("#sideButtons button").forEach((b, i) => {
+    b.classList.toggle("active", i === sec);
+  });
+  document.getElementById("currentSection").textContent = SECTIONS[sec].label;
+}
+
+function frame(ts) {
+  if (!playing) { rafId = null; return; }
+  if (!lastTs) lastTs = ts;
+  const dt = (ts - lastTs) / 1000;
+  lastTs = ts;
+  setScroll(pos + speed * dt);
+  updateHighlight();
+  if (pos >= maxScroll()) {
+    setPlaying(false);
+    return;
+  }
+  rafId = requestAnimationFrame(frame);
+}
+
+function setPlaying(v) {
+  playing = v;
+  hint.classList.add("hide");
+  const btn = document.getElementById("playBtn");
+  btn.textContent = v ? "❚❚ 暂停" : "▶ 开始";
+  if (v) {
+    lastTs = 0;
+    if (!rafId) rafId = requestAnimationFrame(frame);
+  } else if (rafId) {
+    cancelAnimationFrame(rafId);
+    rafId = null;
+  }
+}
+
+function togglePlay() {
+  setPlaying(!playing);
+}
+
+function jumpToSection(si) {
+  const firstBlock = blockEls.findIndex((el, i) => blockSec[i] === si);
+  if (firstBlock < 0) return;
+  // 让该章节起始块贴近视口顶部，阅读线自然落在该章正文上
+  const target = blockEls[firstBlock].offsetTop - prompter.clientHeight * 0.12;
+  setScroll(target);
+  updateHighlight();
+  setPlaying(true);
+}
+
+function jumpToBlock(blockIdx) {
+  const target = blockEls[blockIdx].offsetTop - prompter.clientHeight * READING_RATIO;
+  setScroll(target - prompter.clientHeight * 0.08);
+  updateHighlight();
+}
+
+// 手动滚动：点击某一段 -> 居中到阅读线
+content.addEventListener("click", (e) => {
+  const b = e.target.closest(".block");
+  if (b) jumpToBlock(parseInt(b.dataset.idx, 10));
+});
+
+// 鼠标滚轮手动翻
+prompter.addEventListener("wheel", (e) => {
+  e.preventDefault();
+  setScroll(pos + e.deltaY);
+  updateHighlight();
+}, { passive: false });
+
+// ================= 控制 =================
+const speedSlider = document.getElementById("speedSlider");
+const speedLabel = document.getElementById("speedLabel");
+const fontLabel = document.getElementById("fontLabel");
+
+function applySpeed() {
+  speed = parseInt(speedSlider.value, 10);
+  speedLabel.textContent = speed;
+}
+speedSlider.addEventListener("input", applySpeed);
+document.getElementById("speedPlus").addEventListener("click", () => {
+  speedSlider.value = Math.min(160, parseInt(speedSlider.value, 10) + 5);
+  applySpeed();
+});
+document.getElementById("speedMinus").addEventListener("click", () => {
+  speedSlider.value = Math.max(10, parseInt(speedSlider.value, 10) - 5);
+  applySpeed();
+});
+
+let fontSize = 34;
+function applyFont() {
+  fontSize = Math.max(22, Math.min(64, fontSize));
+  document.documentElement.style.setProperty("--fs", fontSize + "px");
+  fontLabel.textContent = fontSize;
+}
+document.getElementById("fontPlus").addEventListener("click", () => { fontSize += 2; applyFont(); });
+document.getElementById("fontMinus").addEventListener("click", () => { fontSize -= 2; applyFont(); });
+
+document.getElementById("playBtn").addEventListener("click", togglePlay);
+
+const fullBtn = document.getElementById("fullBtn");
+function toggleFull() {
+  if (!document.fullscreenElement) {
+    document.documentElement.requestFullscreen().catch(() => {});
+    fullBtn.textContent = "⤢ 退出全屏";
+  } else {
+    document.exitFullscreen();
+    fullBtn.textContent = "⛶ 全屏";
+  }
+}
+fullBtn.addEventListener("click", toggleFull);
+document.addEventListener("fullscreenchange", () => {
+  fullBtn.textContent = document.fullscreenElement ? "⤢ 退出全屏" : "⛶ 全屏";
+});
+
+// ================= 键盘 =================
+document.addEventListener("keydown", (e) => {
+  if (editor.classList.contains("open")) return; // 编辑模式下提词器快捷键全禁用
+  if (e.target.tagName === "INPUT" && e.target.type === "range") {
+    if (["ArrowUp", "ArrowDown"].includes(e.key)) return;
+  }
+  switch (e.key) {
+    case " ": e.preventDefault(); togglePlay(); break;
+    case "ArrowDown": e.preventDefault(); setScroll(pos + 60); updateHighlight(); break;
+    case "ArrowUp":   e.preventDefault(); setScroll(pos - 60); updateHighlight(); break;
+    case "PageDown":  e.preventDefault(); setScroll(pos + prompter.clientHeight * 0.7); updateHighlight(); break;
+    case "PageUp":    e.preventDefault(); setScroll(pos - prompter.clientHeight * 0.7); updateHighlight(); break;
+    case "+": case "=": speedSlider.value = Math.min(160, parseInt(speedSlider.value, 10) + 5); applySpeed(); break;
+    case "-": case "_": speedSlider.value = Math.max(10, parseInt(speedSlider.value, 10) - 5); applySpeed(); break;
+    case "]": fontSize += 2; applyFont(); break;
+    case "[": fontSize -= 2; applyFont(); break;
+    case "f": case "F": toggleFull(); break;
+    case "Home": e.preventDefault(); setScroll(0); updateHighlight(); break;
+    case "End":  e.preventDefault(); setScroll(maxScroll()); updateHighlight(); break;
+  }
+});
+
+window.addEventListener("resize", () => {
+  setScroll(pos);
+  updateHighlight();
+});
+
+// ================= 编辑模式控制 =================
+const editor = document.getElementById("editor");
+const editArea = document.getElementById("editArea");
+
+function openEditor() {
+  editArea.value = serializeSections(SECTIONS);
+  editor.classList.add("open");
+  setPlaying(false); // 打开编辑时先暂停滚动
+  editArea.focus();
+}
+
+function reloadContent() {
+  content.innerHTML = "";
+  blockEls.length = 0;
+  blockSec.length = 0;
+  sideButtons.innerHTML = "";
+  currentIdx = -1;
+  build();
+  setScroll(0);
+  setPlaying(false);
+  updateHighlight();
+  document.getElementById("currentSection").textContent = SECTIONS[0] ? SECTIONS[0].label : "—";
+}
+
+document.getElementById("editBtn").addEventListener("click", openEditor);
+document.getElementById("cancelBtn").addEventListener("click", () => editor.classList.remove("open"));
+
+document.getElementById("saveBtn").addEventListener("click", () => {
+  const next = parseText(editArea.value);
+  if (!next.length) { alert("没有识别到内容，请至少写一个 # 开头的章节标题。"); return; }
+  SECTIONS = next;
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(SECTIONS)); }
+  catch (e) { alert("保存到本地失败：" + e); }
+  reloadContent();
+  editor.classList.remove("open");
+});
+
+document.getElementById("resetBtn").addEventListener("click", () => {
+  if (!confirm("恢复为内置原始话术？你编辑过的内容会被清除。")) return;
+  localStorage.removeItem(STORE_KEY);
+  SECTIONS = cloneSections(DEFAULT_SECTIONS);
+  reloadContent();
+  editor.classList.remove("open");
+});
+
+// 编辑框里 Ctrl+S / Ctrl+Enter 快速保存
+editArea.addEventListener("keydown", (e) => {
+  if ((e.ctrlKey || e.metaKey) && (e.key === "s" || e.key === "Enter")) {
+    e.preventDefault();
+    document.getElementById("saveBtn").click();
+  }
+});
+
+// ================= 启动 =================
+build();
+applySpeed();
+applyFont();
+updateHighlight();
+</script>
+</body>
+</html>
